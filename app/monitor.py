@@ -53,3 +53,14 @@ class Monitor:
         self.relPos_H.append(rho_H)
         self.relVel_H.append(rhoDot_H)
         self.range.append(rng)
+
+    def getLatest(self):
+        return {
+            "r_target": self.r_target[-1],
+            "v_target": self.v_target[-1],
+            "r_chaser": self.r_chaser[-1],
+            "v_chaser": self.v_chaser[-1],
+            "relPos_H": self.relPos_H[-1],
+            "relVel_H": self.relVel_H[-1],
+            "range": self.range[-1]
+        }

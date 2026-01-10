@@ -2,10 +2,11 @@ import os
 import numpy as np
 
 from Basilisk.utilities import SimulationBaseClass, macros, simIncludeGravBody, vizSupport
-from Basilisk.simulation import spacecraft, simpleNav, simSynch
+from Basilisk.simulation import spacecraft, simpleNav, simSynch, extForceTorque
+
 from Basilisk.utilities import RigidBodyKinematics as rbk
 
-from app import monitor, analyzer, planner, executor, utils, autonomousModule
+from app import model, autonomousModule
 
 try:
     from Basilisk.simulation import vizInterface
@@ -61,7 +62,17 @@ def run(showPlots=True, liveStream=True, broadcastStream=True):
     docking_offset = np.asarray(docking_port_B).flatten()
     docking_port_N = r_target + BN @ docking_offset
 
-    utils.applyInitialRandomization(target, chaser, docking_port_N, seed=None)
+    model.applyInitialRandomization(target, chaser, docking_port_N, seed=None)
+
+    chaserForceEffect = extForceTorque.ExtForceTorque()
+    chaserForceEffect.ModelTag = "chaserForce"
+
+    chaserForceEffect.extForce_B = [0.0, 0.0, 0.0]
+    chaserForceEffect.extTorque_B = [0.0, 0.0, 0.0]
+
+    chaser.addDynamicEffector(chaserForceEffect)
+
+    simulation.AddModelToTask(simulationTaskName, chaserForceEffect)
 
     # clear prior gravitational body and SPICE setup definitions
     gravFactory = simIncludeGravBody.gravBodyFactory()
@@ -141,7 +152,7 @@ def run(showPlots=True, liveStream=True, broadcastStream=True):
 
     if showPlots:
         docking_port_H = np.array([0.0, 0.0, 0.0])  # in relative Hill frame
-        utils.animateRelativeMotion(relPos, docking_port_H)
+        model.animateRelativeMotion(relPos, docking_port_H)
 
     return relPos
 

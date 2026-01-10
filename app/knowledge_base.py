@@ -1,5 +1,5 @@
-import numpy as np
 import sqlite3
+import numpy as np
 
 
 class KnowledgeBase:
@@ -15,7 +15,6 @@ class KnowledgeBase:
             """
             CREATE TABLE IF NOT EXISTS history
             (
-                run_id INTEGER,
                 time REAL,
                 rho_x REAL,
                 rho_y REAL,
@@ -35,10 +34,17 @@ class KnowledgeBase:
         rho = np.array(rho, dtype=float)
         rho_dot = np.array(rho_dot, dtype=float)
         delta_v = np.array(delta_v, dtype=float)
-        self.c.execute('INSERT INTO history VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                       (time, rho[0], rho[1], rho[2],
-                        rho_dot[0], rho_dot[1], rho_dot[2],
-                        delta_v[0], delta_v[1], delta_v[2]))
+
+        self.cursor.execute(
+            'INSERT INTO history VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (
+                time,
+                rho[0], rho[1], rho[2],
+                rho_dot[0], rho_dot[1], rho_dot[2],
+                delta_v[0], delta_v[1], delta_v[2]
+            )
+        )
+
         self.conn.commit()
 
     def close(self):

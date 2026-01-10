@@ -1,13 +1,21 @@
+from monitor import Monitor
+from analyzer import Analyzer
+from planner import Planner
+from executor import Executor
+from knowledge_base import KnowledgeBase
+from model import actuation_command, analysis
+
 from Basilisk.architecture import sysModel
-from .monitor import Monitor
-from .knowledge_base import KnowledgeBase
-from .analyzer import Analyzer
-from .planner import Planner
-from .executor import Executor
+from Basilisk.simulation.extForceTorque import ExtForceTorque
+from Basilisk.simulation.simpleNav import SimpleNav
 
 
 class MAPEK_Module(sysModel.SysModel):
-    def __init__(self, target, chaser, modelTag="autonomous"):
+    def __init__(self,
+                 target: SimpleNav,
+                 chaser: SimpleNav,
+                 forceEffector: ExtForceTorque,
+                 modelTag="autonomous"):
         super().__init__()
         self.ModelTag = modelTag
 
@@ -19,13 +27,34 @@ class MAPEK_Module(sysModel.SysModel):
 
         self.analyzer = Analyzer()
         self.planner = Planner()
-        self.executor = Executor()
+        self.executor = Executor(forceEffector)
 
         self.knowledge = KnowledgeBase()
 
-    def updateState(self, currentTime):
-        self.monitor.updateState(currentTime)
+    def updateState(self, CurrentSimNanos):
+        self.monitor.updateState(CurrentSimNanos)
 
-        analysis = self.analyzer.analyze(self.monitor)
-        plan = self.planner.plan(analysis, self.knowledge)
-        self.executor.execute(plan)
+        analysisResult = self.analyzer.analyze(self.monitor)
+        actuationCommand = self.planner.plan(analysisResult)
+
+        self.executor.execute(actuationCommand, CurrentSimNanos)
+        self.logStep(CurrentSimNanos, analysisResult, actuationCommand)
+
+    def logStep(
+            self,
+            time,
+            analysisCommand: analysis.Analysis,
+            command: actuation_command.ActuationCommand
+    ):
+        rho = analysisCommand["relPos_H"]
+        rho_dot = analysisCommand["relVel_H"]
+
+        # TODO: Convert force to delta-v later; placeholder for now
+        delta_v = command["force_H"]
+
+        self.knowledge.log(
+            time=time,
+            rho=rho,
+            rho_dot=rho_dot,
+            delta_v=delta_v
+        )
