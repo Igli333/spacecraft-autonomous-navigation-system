@@ -44,29 +44,84 @@ def applyInitialRandomization(target: Spacecraft, chaser: Spacecraft, docking_po
     chaser.hub.omega_BN_BInit = [[omega[0]], [omega[1]], [omega[2]]]
 
 
-def animateRelativeMotion(rel_positions, docking_port_H=None):
+def animateChaserTarget(target_pos, chaser_pos, zoom_margin=200):
     """
-    rel_positions: list of 3-element arrays in Hill frame (chaser w.r.t target)
-    docking_port_H: optional 3-element array, position of docking port in Hill frame
-    """
-    rel_positions = np.array(rel_positions)
-    fig, ax = plt.subplots()
-    line, = ax.plot([], [], 'b-', label='Chaser trajectory')
-    point, = ax.plot([], [], 'ro', label='Docking port')
+    Animate chaser and target positions in absolute and relative frames.
 
-    ax.set_xlim(-150, 150)
-    ax.set_ylim(-20, 20)
-    ax.set_xlabel("Along-track (m)")
-    ax.set_ylabel("Radial (m)")
-    ax.set_title("Chaser Relative Motion (Hill frame)")
-    ax.grid()
-    ax.legend()
+    target_pos: (N,3) array of target positions
+    chaser_pos: (N,3) array of chaser positions
+    zoom_margin: meters to add around the zoomed absolute plot
+    """
+    target_pos = np.array(target_pos).reshape(len(target_pos), 3)
+    chaser_pos = np.array(chaser_pos).reshape(len(chaser_pos), 3)
+    N = len(target_pos)
+    assert chaser_pos.shape[0] == N, "Target and chaser must have same length"
+
+    # Relative positions (chaser w.r.t target)
+    rel_pos = chaser_pos - target_pos
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 7))
+
+    # --- Absolute motion plot (zoomed) ---
+    ax_abs = axes[0]
+    line_target_abs, = ax_abs.plot([], [], 'g--', lw=1, label='Target')
+    point_target_abs, = ax_abs.plot([], [], 'go')
+    line_chaser_abs, = ax_abs.plot([], [], 'b-', lw=2, label='Chaser')
+    point_chaser_abs, = ax_abs.plot([], [], 'bo')
+    vector_abs, = ax_abs.plot([], [], 'r:', lw=1, label='Relative vector')
+
+    # Zoom axes based on initial positions ± margin
+    x_all = np.concatenate([target_pos[:, 0], chaser_pos[:, 0]])
+    y_all = np.concatenate([target_pos[:, 1], chaser_pos[:, 1]])
+    ax_abs.set_xlim(x_all.min() - zoom_margin, x_all.max() + zoom_margin)
+    ax_abs.set_ylim(y_all.min() - zoom_margin, y_all.max() + zoom_margin)
+    ax_abs.set_aspect('equal')
+    ax_abs.set_xlabel("X (m)")
+    ax_abs.set_ylabel("Y (m)")
+    ax_abs.set_title("Absolute Motion (Zoomed)")
+    ax_abs.grid()
+    ax_abs.legend()
+    ax_abs.axhline(0, color='k', lw=0.5)
+    ax_abs.axvline(0, color='k', lw=0.5)
+
+    # --- Relative motion plot (Hill-frame style) ---
+    ax_rel = axes[1]
+    line_rel, = ax_rel.plot([], [], 'b-', lw=2, label='Chaser trajectory')
+    point_rel, = ax_rel.plot([], [], 'bo', label='Chaser current')
+    point_target_rel, = ax_rel.plot(0, 0, 'ro', label='Target')
+    vector_rel, = ax_rel.plot([], [], 'r:', lw=1, label='Relative vector')
+
+    max_range = np.max(np.abs(rel_pos[:, :2])) * 1.2
+    lim = max_range if max_range > 1e-3 else 10
+    ax_rel.set_xlim(-lim, lim)
+    ax_rel.set_ylim(-lim, lim)
+    ax_rel.set_aspect('equal')
+    ax_rel.set_xlabel("Along-track (m)")
+    ax_rel.set_ylabel("Radial (m)")
+    ax_rel.set_title("Relative Motion (Target-centered)")
+    ax_rel.grid()
+    ax_rel.legend()
+    ax_rel.axhline(0, color='k', lw=0.5)
+    ax_rel.axvline(0, color='k', lw=0.5)
 
     def update(frame):
-        line.set_data(rel_positions[:frame, 1], rel_positions[:frame, 0])
-        if docking_port_H is not None:
-            point.set_data([docking_port_H[1]], [docking_port_H[0]])
-        return line, point
+        # Absolute plot
+        line_target_abs.set_data(target_pos[:frame, 0], target_pos[:frame, 1])
+        point_target_abs.set_data([target_pos[frame - 1, 0]], [target_pos[frame - 1, 1]])
+        line_chaser_abs.set_data(chaser_pos[:frame, 0], chaser_pos[:frame, 1])
+        point_chaser_abs.set_data([chaser_pos[frame - 1, 0]], [chaser_pos[frame - 1, 1]])
+        vector_abs.set_data(
+            [target_pos[frame - 1, 0], chaser_pos[frame - 1, 0]],
+            [target_pos[frame - 1, 1], chaser_pos[frame - 1, 1]]
+        )
 
-    ani = FuncAnimation(fig, update, frames=len(rel_positions), interval=50, blit=True)
+        # Relative plot
+        line_rel.set_data(rel_pos[:frame, 1], rel_pos[:frame, 0])
+        point_rel.set_data([rel_pos[frame - 1, 1]], [rel_pos[frame - 1, 0]])
+        vector_rel.set_data([0, rel_pos[frame - 1, 1]], [0, rel_pos[frame - 1, 0]])
+
+        return (line_target_abs, point_target_abs, line_chaser_abs, point_chaser_abs, vector_abs,
+                line_rel, point_rel, point_target_rel, vector_rel)
+
+    ani = FuncAnimation(fig, update, frames=N, interval=30, blit=False)
     plt.show()

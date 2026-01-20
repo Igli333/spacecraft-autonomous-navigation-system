@@ -1,17 +1,8 @@
-from mode import Mode
+from .mode import Mode
 
 
 class ActuationCommand:
-    def __init__(self, force, torque, mode=Mode.FAR_APPROACH):
-        self.force_B = force
+    def __init__(self, desired_acceleration, torque, mode=Mode.FAR_APPROACH):
+        self.desired_acceleration = desired_acceleration
         self.torque_B = torque
-        self.mode = mode
-
-    def setForce(self, force):
-        self.force_B = force
-
-    def setTorque(self, torque):
-        self.torque_B = torque
-
-    def setMode(self, mode: Mode):
         self.mode = mode

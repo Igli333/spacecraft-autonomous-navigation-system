@@ -6,7 +6,7 @@ from Basilisk.simulation import spacecraft, simpleNav, simSynch, extForceTorque
 
 from Basilisk.utilities import RigidBodyKinematics as rbk
 
-from app import model, autonomousModule
+from app import model, autonomousModule, utils
 
 try:
     from Basilisk.simulation import vizInterface
@@ -53,22 +53,13 @@ def run(showPlots=True, liveStream=True, broadcastStream=True):
     target.hub.sigma_BNInit = [[0.0], [0.0], [0.0]]
     target.hub.omega_BN_BInit = [[0.0], [0.0], [0.0]]
 
-    # Docking port on the side, 2 meters from the center of the spacecraft
-    docking_port_B = np.array([2.0, 0.0, 0.0])
-    sigma_BN = np.array(target.hub.sigma_BNInit).flatten()
-    BN = rbk.MRP2C(sigma_BN)
-
-    r_target = np.asarray(target.hub.r_CN_NInit).flatten()
-    docking_offset = np.asarray(docking_port_B).flatten()
-    docking_port_N = r_target + BN @ docking_offset
-
-    model.applyInitialRandomization(target, chaser, docking_port_N, seed=None)
+    utils.applyInitialRandomization(target, chaser, docking_port_N=None, seed=None)
 
     chaserForceEffect = extForceTorque.ExtForceTorque()
     chaserForceEffect.ModelTag = "chaserForce"
 
     chaserForceEffect.extForce_B = [0.0, 0.0, 0.0]
-    chaserForceEffect.extTorque_B = [0.0, 0.0, 0.0]
+    # chaserForceEffect.extTorque_B = [0.0, 0.0, 0.0]
 
     chaser.addDynamicEffector(chaserForceEffect)
 
@@ -108,7 +99,7 @@ def run(showPlots=True, liveStream=True, broadcastStream=True):
     simulation.AddModelToTask(simulationTaskName, targetRec)
     simulation.AddModelToTask(simulationTaskName, chaserRec)
 
-    if vizSupport.vizFound:
+    if not vizSupport.vizFound:
         if liveStream:
             clockSync = simSynch.ClockSynch()
             clockSync.accelFactor = 15.0
@@ -132,13 +123,13 @@ def run(showPlots=True, liveStream=True, broadcastStream=True):
 
         viz.settings.trueTrajectoryLinesOn = -1
         viz.settings.orbitLinesOn = 2
-        viz.settings.mainCameraTarget = "debris"
+        viz.settings.mainCameraTarget = "chaser"
 
-    mape_k = autonomousModule.MAPEK_Module(targetNav, chaserNav)
+    mape_k = autonomousModule.MAPEK_Module(targetNav, chaserNav, chaserForceEffect, chaser.hub.mHub)
 
     simulation.AddModelToTask(simulationTaskName, mape_k)
 
-    simulation.ConfigureStopTime(macros.sec2nano(600))  # 10 minutes
+    simulation.ConfigureStopTime(macros.sec2nano(1000))  # 10 minutes
     simulation.InitializeSimulation()
     simulation.ExecuteSimulation()
 
@@ -150,9 +141,11 @@ def run(showPlots=True, liveStream=True, broadcastStream=True):
     rC = np.vstack(chaserRec.r_BN_N)
     relPos = rC - rT
 
+    print(rT)
+    print(rC)
+
     if showPlots:
-        docking_port_H = np.array([0.0, 0.0, 0.0])  # in relative Hill frame
-        model.animateRelativeMotion(relPos, docking_port_H)
+        utils.animateChaserTarget(rC, rT)
 
     return relPos
 

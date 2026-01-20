@@ -1,42 +1,60 @@
 import numpy as np
 
-from monitor import Monitor
-from model import analysis
+from Basilisk.utilities import macros
+from .model import analysis, phase, monitor_latest
+from .knowledge_base import KnowledgeBase
 
 
 class Analyzer:
-    def __init__(self):
-        self.analysis = {}
-        self.monitor = None
+    def __init__(self, kb: KnowledgeBase):
+        self.kb = kb
 
-        self.max_closing_rate = 0.1  # m/s
-        self.max_lateral_offset = 2.0  # m
-        self.max_range = 200.0  # m
+    def analyze(self, data: monitor_latest.MonitorLatestData):
+        rho = data.rho
+        rhoDot = data.rhoDot
+        range_ = data.range
+        sigma_BT = data.sigma_BT
+        omega_BT = data.omega_BT
 
-    def analyze(self, monitor: Monitor):
-        data = monitor.getLatest()
+        speed = np.linalg.norm(rhoDot)
 
-        rho = data["relPos_H"]
-        rhoDot = data["relVel_H"]
+        if range_ > 50:
+            phase_ = phase.Phase.FAR
+        elif range_ > 10:
+            phase_ = phase.Phase.MID
+        elif range_ > 1:
+            phase_ = phase.Phase.CLOSE
+        else:
+            phase_ = phase.Phase.DOCKING
 
-        range_ = data["range"]
-        closing_rate = rhoDot[0]  # radial in Hill frame
-        lateral_offset = np.linalg.norm(rho[1:])
+        physics_v_max = 0.1 * np.sqrt(max(range_, 0.1))
+        kb_v_max = self.kb.learnedSafeSpeed(range_)
+        # kb_v_max = None
+        v_safe = min(physics_v_max, kb_v_max) if kb_v_max else physics_v_max
 
-        inside_corridor = lateral_offset < self.max_lateral_offset
-        closing_rate_ok = abs(closing_rate) < self.max_closing_rate
-        range_ok = range_ < self.max_range
+        risk = speed / v_safe
 
-        constraints_violated = not (
-                inside_corridor and closing_rate_ok and range_ok
-        )
+        mu = 3.986004418e14  # Earth GM
+        r = np.linalg.norm(data.r_target)
+        n = np.sqrt(mu / r ** 3)
+
+        safe = risk < 0.1
+
+        pos_ready = dist < 0.1
+        vel_ready = speed < 0.01
+        att_ready = np.linalg.norm(sigma_BT) < 5 * macros.D2R
+        rate_ready = np.linalg.norm(omega_BT) < 0.5 * macros.D2R
+
+        dock_ready = pos_ready and vel_ready and att_ready and rate_ready
 
         return analysis.Analysis(
             range_=range_,
-            closing_rate=closing_rate,
-            lateral_offset=lateral_offset,
-            inside_corridor=inside_corridor,
-            constraints_violated=constraints_violated,
-            relPos_H=rho,
-            relVel_H=rhoDot,
+            rho=rho,
+            rhoDot=rhoDot,
+            safe=safe,
+            phase_=phase_,
+            meanMotion=n,
+            sigma_BT=sigma_BT,
+            omega_BT=omega_BT,
+            dock_ready=dock_ready,
         )

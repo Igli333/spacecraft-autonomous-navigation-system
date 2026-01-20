@@ -1,27 +1,17 @@
 import numpy as np
 
-from Basilisk.utilities import orbitalMotion
+from .model import monitor_latest
+from Basilisk.utilities import orbitalMotion, RigidBodyKinematics as rbk
 
 
 class Monitor:
-    def __init__(self):
+    def __init__(self, targetMsg, chaserMsg):
         super().__init__()
         self.ModelTag = "monitor"
-        self.targetNavInMsg = None
-        self.chaserNavInMsg = None
-
-        self.relPos_H = []
-        self.relVel_H = []
-        self.range = []
-
-        self.r_target = []
-        self.v_target = []
-        self.r_chaser = []
-        self.v_chaser = []
-
-    def subscribeTo(self, targetMsg, chaserMsg):
         self.targetNavInMsg = targetMsg
         self.chaserNavInMsg = chaserMsg
+
+        self.latest = None
 
     def updateState(self, CurrentSimNanos):
         target = self.targetNavInMsg()
@@ -32,35 +22,34 @@ class Monitor:
         rC = np.array(chaser.r_BN_N)
         vC = np.array(chaser.v_BN_N)
 
-        self.r_target.append(rT)
-        self.v_target.append(vT)
-        self.r_chaser.append(rC)
-        self.v_chaser.append(vC)
-
         # Relative inertial
         relR = rC - rT
         relV = vC - vT
 
         # Hill frame
         HN = orbitalMotion.hillFrame(rT, vT)
-        rho_H = HN @ relR
-        rhoDot_H = HN @ relV
+        rho = HN @ relR
+        rhoDot = HN @ relV
 
-        # Metrics
-        rng = np.linalg.norm(rho_H)
+        sigma_BN_C = np.array(chaser.sigma_BN)
+        sigma_BN_T = np.array(target.sigma_BN)
+
+        omega_BN_C = np.array(chaser.omega_BN_B)
+        omega_BN_T = np.array(target.omega_BN_B)
+
+        BN_C = rbk.MRP2C(sigma_BN_C)
+        BN_T = rbk.MRP2C(sigma_BN_T)
+
+        BT = BN_C @ BN_T.T
+        sigma_BT = rbk.C2MRP(BT)
+        omega_BT = omega_BN_C - BT @ omega_BN_T
 
         # Store
-        self.relPos_H.append(rho_H)
-        self.relVel_H.append(rhoDot_H)
-        self.range.append(rng)
-
-    def getLatest(self):
-        return {
-            "r_target": self.r_target[-1],
-            "v_target": self.v_target[-1],
-            "r_chaser": self.r_chaser[-1],
-            "v_chaser": self.v_chaser[-1],
-            "relPos_H": self.relPos_H[-1],
-            "relVel_H": self.relVel_H[-1],
-            "range": self.range[-1]
-        }
+        monitor_latest.MonitorLatestData(
+            rho=rho,
+            rhoDot=rhoDot,
+            range_=np.linalg.norm(rho),
+            r_target=rT,
+            sigma_BT = sigma_BT,
+            omega_BT = omega_BT,
+        )

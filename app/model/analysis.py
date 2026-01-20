@@ -1,18 +1,27 @@
+import numpy as np
+
+from .phase import Phase
+
+
 class Analysis:
     def __init__(
             self,
-            range_,
-            closing_rate,
-            lateral_offset,
-            inside_corridor,
-            constraints_violated,
-            relPos_H,
-            relVel_H
+            rho: np.ndarray,
+            rhoDot: np.ndarray,
+            range_: float,
+            safe: bool,
+            phase_: Phase,
+            meanMotion,
+            sigma_BT,
+            omega_BT,
+            dock_ready,
     ):
+        self.rho = rho
+        self.rhoDot = rhoDot
         self.range = range_
-        self.closing_rate = closing_rate
-        self.lateral_offset = lateral_offset
-        self.inside_corridor = inside_corridor
-        self.constraints_violated = constraints_violated
-        self.relPos_H = relPos_H
-        self.relVel_H = relVel_H
+        self.safe = safe
+        self.phase = phase_
+        self.meanMotion = meanMotion
+        self.sigma_BT = sigma_BT
+        self.omega_BT = omega_BT
+        self.dock_ready = dock_ready

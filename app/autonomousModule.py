@@ -1,9 +1,9 @@
-from monitor import Monitor
-from analyzer import Analyzer
-from planner import Planner
-from executor import Executor
-from knowledge_base import KnowledgeBase
-from model import actuation_command, analysis
+from .monitor import Monitor
+from .analyzer import Analyzer
+from .planner import Planner
+from .executor import Executor
+from .knowledge_base import KnowledgeBase
+from .model import actuation_command, analysis
 
 from Basilisk.architecture import sysModel
 from Basilisk.simulation.extForceTorque import ExtForceTorque
@@ -15,46 +15,31 @@ class MAPEK_Module(sysModel.SysModel):
                  target: SimpleNav,
                  chaser: SimpleNav,
                  forceEffector: ExtForceTorque,
+                 chaser_mass: float,
                  modelTag="autonomous"):
         super().__init__()
         self.ModelTag = modelTag
+        self.forceEffector = forceEffector
+        self.knowledge = KnowledgeBase()
 
-        self.monitor = Monitor()
-        self.monitor.subscribeTo(
+        self.monitor = Monitor(
             target.transOutMsg.read,
             chaser.transOutMsg.read
         )
 
-        self.analyzer = Analyzer()
-        self.planner = Planner()
+        self.analyzer = Analyzer(self.knowledge)
+        self.planner = Planner(self.knowledge, chaser_mass)
         self.executor = Executor(forceEffector)
 
-        self.knowledge = KnowledgeBase()
+    def UpdateState(self, CurrentSimNanos):
+        # print("MAPEK CALLED", int(CurrentSimNanos * 1e-9))
+        monitoredData = self.monitor.updateState(CurrentSimNanos)
 
-    def updateState(self, CurrentSimNanos):
-        self.monitor.updateState(CurrentSimNanos)
+        analysisResult = self.analyzer.analyze(monitoredData)
+        force, torque = self.planner.plan(analysisResult, CurrentSimNanos)
 
-        analysisResult = self.analyzer.analyze(self.monitor)
-        actuationCommand = self.planner.plan(analysisResult)
+        if self.planner.docked or analysisResult.dock_ready:
+            # Find a way to stop the simulation
+            self.simulation.StopSimulation()
 
-        self.executor.execute(actuationCommand, CurrentSimNanos)
-        self.logStep(CurrentSimNanos, analysisResult, actuationCommand)
-
-    def logStep(
-            self,
-            time,
-            analysisCommand: analysis.Analysis,
-            command: actuation_command.ActuationCommand
-    ):
-        rho = analysisCommand["relPos_H"]
-        rho_dot = analysisCommand["relVel_H"]
-
-        # TODO: Convert force to delta-v later; placeholder for now
-        delta_v = command["force_H"]
-
-        self.knowledge.log(
-            time=time,
-            rho=rho,
-            rho_dot=rho_dot,
-            delta_v=delta_v
-        )
+        self.executor.execute(force, torque, CurrentSimNanos)
