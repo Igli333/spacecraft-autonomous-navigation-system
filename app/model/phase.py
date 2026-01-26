@@ -6,5 +6,4 @@ class Phase(Enum):
     MID = 1
     CLOSE = 2
     DOCKING = 3
-    DOCKED = 4
-    ABORT = 5
+    DOCK = 4

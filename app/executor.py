@@ -1,7 +1,6 @@
 from Basilisk.simulation.extForceTorque import ExtForceTorque
 
 
-# TODO: Improve
 class Executor:
     def __init__(self, forceEffector: ExtForceTorque):
         self.ModelTag = "executor"
@@ -10,10 +9,9 @@ class Executor:
     def execute(
             self,
             force,
-            torque,
-            CurrentSimNans
+            torque
     ):
         self.forceEffector.extForce_B = force.tolist()
-        self.forceEffector.extTorque_B = torque.tolist()
+        self.forceEffector.extTorquePntB_B = torque.tolist()
 
-        print(f"{self.forceEffector.extForce_B} -- {self.forceEffector.extTorque_B}")
+        # print(f"{self.forceEffector.extForce_B} -- {self.forceEffector.extTorquePntB_B}")

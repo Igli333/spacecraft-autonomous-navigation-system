@@ -16,7 +16,13 @@ class Analyzer:
         sigma_BT = data.sigma_BT
         omega_BT = data.omega_BT
 
+        n_hat = np.array([1.0, 0.0, 0.0])  # target docking axis
+        dist = np.dot(rho, n_hat)
+
         speed = np.linalg.norm(rhoDot)
+
+        v_parallel = np.dot(rhoDot, n_hat)
+        capture_possible = self.kb.captureSuccessEnvelope(dist, v_parallel)
 
         if range_ > 50:
             phase_ = phase.Phase.FAR
@@ -29,7 +35,7 @@ class Analyzer:
 
         physics_v_max = 0.1 * np.sqrt(max(range_, 0.1))
         kb_v_max = self.kb.learnedSafeSpeed(range_)
-        # kb_v_max = None
+
         v_safe = min(physics_v_max, kb_v_max) if kb_v_max else physics_v_max
 
         risk = speed / v_safe
@@ -47,6 +53,17 @@ class Analyzer:
 
         dock_ready = pos_ready and vel_ready and att_ready and rate_ready
 
+        success = False
+        abort = False
+        abort_reason = None
+
+        if phase_ != phase.Phase.FAR:
+            if dock_ready:
+                success = True
+            elif not safe and range_ < 5.0:
+                abort = True
+                abort_reason = "unsafe_close_range"
+
         return analysis.Analysis(
             range_=range_,
             rho=rho,
@@ -57,4 +74,8 @@ class Analyzer:
             sigma_BT=sigma_BT,
             omega_BT=omega_BT,
             dock_ready=dock_ready,
+            abort=abort,
+            abort_reason=abort_reason,
+            success=success,
+            capture_possible=capture_possible
         )

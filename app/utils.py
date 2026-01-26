@@ -13,9 +13,9 @@ def applyInitialRandomization(target: Spacecraft, chaser: Spacecraft, docking_po
 
     # ---- Hill-frame relative position (meters)
     rho_H = np.array([
-        np.random.uniform(-50.0, 50.0),  # radial
-        np.random.uniform(-150.0, 150.0),  # along-track
-        np.random.uniform(-30.0, 30.0)  # cross-track
+        np.random.uniform(-25.0, 25.0),  # radial
+        np.random.uniform(-100.0, 100.0),  # along-track
+        np.random.uniform(-15.0, 15.0)  # cross-track
     ])
 
     # ---- Hill-frame relative velocity (m/s)
@@ -123,5 +123,5 @@ def animateChaserTarget(target_pos, chaser_pos, zoom_margin=200):
         return (line_target_abs, point_target_abs, line_chaser_abs, point_chaser_abs, vector_abs,
                 line_rel, point_rel, point_target_rel, vector_rel)
 
-    ani = FuncAnimation(fig, update, frames=N, interval=30, blit=False)
+    ani = FuncAnimation(fig, update, frames=N, interval=10, blit=False)
     plt.show()

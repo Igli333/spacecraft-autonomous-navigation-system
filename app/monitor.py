@@ -5,17 +5,21 @@ from Basilisk.utilities import orbitalMotion, RigidBodyKinematics as rbk
 
 
 class Monitor:
-    def __init__(self, targetMsg, chaserMsg):
+    def __init__(self, targetMsg, chaserMsg, targetAttMsg, chaserAttMsg):
         super().__init__()
         self.ModelTag = "monitor"
         self.targetNavInMsg = targetMsg
         self.chaserNavInMsg = chaserMsg
+        self.targetAttMsg = targetAttMsg
+        self.chaserAttMsg = chaserAttMsg
 
         self.latest = None
 
-    def updateState(self, CurrentSimNanos):
+    def updateState(self):
         target = self.targetNavInMsg()
         chaser = self.chaserNavInMsg()
+        targetAtt = self.targetAttMsg()
+        chaserAtt = self.chaserAttMsg()
 
         rT = np.array(target.r_BN_N)
         vT = np.array(target.v_BN_N)
@@ -31,11 +35,11 @@ class Monitor:
         rho = HN @ relR
         rhoDot = HN @ relV
 
-        sigma_BN_C = np.array(chaser.sigma_BN)
-        sigma_BN_T = np.array(target.sigma_BN)
+        sigma_BN_C = np.array(chaserAtt.sigma_BN)
+        sigma_BN_T = np.array(targetAtt.sigma_BN)
 
-        omega_BN_C = np.array(chaser.omega_BN_B)
-        omega_BN_T = np.array(target.omega_BN_B)
+        omega_BN_C = np.array(chaserAtt.omega_BN_B)
+        omega_BN_T = np.array(targetAtt.omega_BN_B)
 
         BN_C = rbk.MRP2C(sigma_BN_C)
         BN_T = rbk.MRP2C(sigma_BN_T)
@@ -45,11 +49,13 @@ class Monitor:
         omega_BT = omega_BN_C - BT @ omega_BN_T
 
         # Store
-        monitor_latest.MonitorLatestData(
+        return monitor_latest.MonitorLatestData(
             rho=rho,
             rhoDot=rhoDot,
             range_=np.linalg.norm(rho),
             r_target=rT,
-            sigma_BT = sigma_BT,
-            omega_BT = omega_BT,
+            v_target=vT,
+            sigma_BT=sigma_BT,
+            omega_BT=omega_BT,
+            BN_T=BN_T,
         )

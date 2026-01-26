@@ -36,10 +36,10 @@ def run(showPlots=True, liveStream=True, broadcastStream=True):
     chaser = spacecraft.Spacecraft()
     chaser.ModelTag = "chaser"
 
-    target.hub.mHub = 750.0  # kg
-    target.hub.IHubPntBc_B = [[900.0, 0.0, 0.0],
-                              [0.0, 800.0, 0.0],
-                              [0.0, 0.0, 600.0]]
+    target.hub.mHub = 1750.0  # kg
+    target.hub.IHubPntBc_B = [[1000.0, 0.0, 0.0],
+                              [0.0, 1000.0, 0.0],
+                              [0.0, 0.0, 1000.0]]
 
     # Chaser mass properties
     chaser.hub.mHub = 500.0  # kg
@@ -59,10 +59,9 @@ def run(showPlots=True, liveStream=True, broadcastStream=True):
     chaserForceEffect.ModelTag = "chaserForce"
 
     chaserForceEffect.extForce_B = [0.0, 0.0, 0.0]
-    # chaserForceEffect.extTorque_B = [0.0, 0.0, 0.0]
+    chaserForceEffect.extTorquePntB_B = [0.0, 0.0, 0.0]
 
     chaser.addDynamicEffector(chaserForceEffect)
-
     simulation.AddModelToTask(simulationTaskName, chaserForceEffect)
 
     # clear prior gravitational body and SPICE setup definitions
@@ -99,10 +98,10 @@ def run(showPlots=True, liveStream=True, broadcastStream=True):
     simulation.AddModelToTask(simulationTaskName, targetRec)
     simulation.AddModelToTask(simulationTaskName, chaserRec)
 
-    if not vizSupport.vizFound:
+    if vizSupport.vizFound:
         if liveStream:
             clockSync = simSynch.ClockSynch()
-            clockSync.accelFactor = 15.0
+            clockSync.accelFactor = 100.0
             simulation.AddModelToTask(simulationTaskName, clockSync)
 
         viz = vizSupport.enableUnityVisualization(simulation,
@@ -123,7 +122,7 @@ def run(showPlots=True, liveStream=True, broadcastStream=True):
 
         viz.settings.trueTrajectoryLinesOn = -1
         viz.settings.orbitLinesOn = 2
-        viz.settings.mainCameraTarget = "chaser"
+        viz.settings.mainCameraTarget = "target"
 
     mape_k = autonomousModule.MAPEK_Module(targetNav, chaserNav, chaserForceEffect, chaser.hub.mHub)
 
@@ -141,10 +140,7 @@ def run(showPlots=True, liveStream=True, broadcastStream=True):
     rC = np.vstack(chaserRec.r_BN_N)
     relPos = rC - rT
 
-    print(rT)
-    print(rC)
-
-    if showPlots:
+    if not showPlots:
         utils.animateChaserTarget(rC, rT)
 
     return relPos
