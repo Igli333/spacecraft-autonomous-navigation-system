@@ -8,6 +8,8 @@ from .knowledge_base import KnowledgeBase
 from .monitor import Monitor
 from .planner import Planner
 
+import requests
+
 
 class MAPEK_Module(sysModel.SysModel):
     def __init__(self,

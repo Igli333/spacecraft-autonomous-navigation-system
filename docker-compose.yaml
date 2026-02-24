@@ -1,0 +1,80 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres-db
+    restart: always
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+
+  knowledge-base:
+    build:
+      context: ./ms-knowledge-base
+      dockerfile: Dockerfile
+    container_name: ms-knowledge-base
+    env_file:
+      - sim.env
+    ports:
+      - "5001:5001"
+    depends_on:
+      - postgres
+    networks:
+      - backend
+
+  monitor:
+    build:
+      context: ./ms-monitor
+      dockerfile: Dockerfile
+    container_name: ms-monitor
+    env_file:
+      - sim.env
+    ports:
+      - "5002:5002"
+    depends_on:
+      - knowledge-base
+    networks:
+      - backend
+
+  analyzer:
+    build:
+      context: ./ms-analyzer
+      dockerfile: Dockerfile
+    container_name: ms-analyzer
+    env_file:
+      - sim.env
+    ports:
+      - "5003:5003"
+    depends_on:
+      - monitor
+      - knowledge-base
+    networks:
+      - backend
+
+  planner:
+    build:
+      context: ./ms-planner
+      dockerfile: Dockerfile
+    container_name: ms-planner
+    env_file:
+      - sim.env
+    ports:
+      - "5004:5004"
+    depends_on:
+      - analyzer
+      - knowledge-base
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  postgres_data:
