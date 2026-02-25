@@ -5,6 +5,9 @@
 #### To run
 1. Download Basilisk and built it on your local machine
 2. Clone this repository inside of ./basilisk/
+    - `cd` into the folder and run `docker compose up --build`
+    - If needed, you can change all system variables inside `sim.env`.
+    - Go back using `cd ..`
 3. Run `python ./spacecraft-autonomous-navigation-system/simulation.py`
 
 #### To show the 3D visualization:
