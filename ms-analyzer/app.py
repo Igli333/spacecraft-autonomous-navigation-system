@@ -15,12 +15,18 @@ def analyze():
     if not data:
         return jsonify({"error": "No JSON body provided"}), 400
 
-    analyzed_data = analyzer_service.analyze(data)
+    analyzed_data = analyzer_service.analyze(
+        data['monitored_data'],
+        data['config']['analyzer']
+    )
 
     try:
         response = requests.post(
             f"{os.getenv('PLANNER_URI')}/plan",
-            json=analyzed_data,
+            json={
+                'analyzed_data': analyzed_data,
+                'config': data['config']['planner']
+            },
             timeout=5
         )
 

@@ -12,7 +12,7 @@ def plan():
     if not data:
         return jsonify({"error": "No JSON body provided"}), 400
 
-    result = planner_service.plan(data)
+    result = planner_service.plan(data['analyzed_data'], data['config'])
 
     return jsonify(result), 200
 

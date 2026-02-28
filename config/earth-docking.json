@@ -1,0 +1,101 @@
+{
+  "system": {
+    "monitor_uri": "http://localhost:5002"
+  },
+  "analyzer": {
+    "mu": 3.986004418e14,
+    "alpha": 0.1,
+    "epsilon_risk": 0.1,
+    "min_range": 0.1,
+    "docking_axis": [1.0, 0.0, 0.0],
+    "phase_thresholds_m": {
+      "FAR": 50,
+      "MID": 10,
+      "CLOSE": 1
+    },
+    "docking_tolerances": {
+      "position_m": 0.1,
+      "velocity_m_s": 0.01,
+      "attitude_deg": 5,
+      "rate_deg_s": 0.5
+    }
+  },
+  "planner": {
+    "force_control": {
+      "max_force_n": {
+        "FAR": 20.0,
+        "MID": 10.0,
+        "CLOSE": 2.0,
+        "DOCKING": 0.5
+      },
+      "k_safe": 5e-5,
+      "docking_axis": [1.0, 0.0, 0.0],
+      "lyapunov_gains": {
+        "k_r": 8e-5,
+        "k_v": 3e-4,
+        "k_lat": 5e-4
+      },
+
+      "pd_gains": {
+        "FAR": { "kp": 1e-4, "kd": 5e-3 },
+        "MID": { "kp": 3e-4, "kd": 1e-2 },
+        "CLOSE": { "kp": 8e-4, "kd": 3e-2 },
+        "DOCKING": { "kp": 2e-4, "kd": 5e-2 }
+      },
+
+      "velocity_limits_m_s": {
+        "FAR": 0.5,
+        "MID": 0.2,
+        "CLOSE": 0.05,
+        "DOCKING": 0.01
+      }
+    },
+    "torque_control": {
+      "k_r": 5.0,
+      "k_w": 50.0,
+      "tau_max": 0.5,
+      "abort_threshold": 0.1
+    }
+  },
+  "simulation": {
+    "target": {
+      "mass": 1750.0,
+      "inertia": [
+        [1000.0, 0.0, 0.0],
+        [0.0, 1000.0, 0.0],
+        [0.0, 0.0, 1000.0]
+      ],
+      "position_m": [7000000.0, 0.0, 0.0],
+      "velocity_m_s": [0.0, 7546.0, 0.0],
+      "sigma": [0.0, 0.0, 0.0],
+      "omega_rad_s": [0.0, 0.0, 0.0]
+    },
+    "chaser": {
+      "mass": 500.0,
+      "inertia":  [
+        [600.0, 0.0, 0.0],
+        [0.0, 550.0, 0.0],
+        [0.0, 0.0, 450.0]
+      ]
+    },
+    "visualization": {
+      "request": {
+        "address": "localhost",
+        "port": 5556
+      },
+      "publish": {
+        "address": "localhost",
+        "port": 5570
+      },
+      "clock_acceleration_factor": 100.0
+    },
+    "spice": {
+      "epoch": "2002 APRIL 1 00:09:30.0",
+      "zero_base": "Earth"
+    },
+    "body": "earth",
+    "step_sec": 1.0,
+    "stop_time_sec": 1500.0,
+    "seed": null
+  }
+}

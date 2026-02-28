@@ -6,7 +6,6 @@ import requests
 from flask import Flask, request, jsonify
 from monitoring_service import monitor
 
-
 app = Flask(__name__)
 
 
@@ -17,12 +16,15 @@ def monitoring():
     if not data:
         return jsonify({"error": "No JSON body provided"}), 400
 
-    monitored_data = monitor(data)
+    monitored_data = monitor(data['data'])
 
     try:
         response = requests.post(
             f"{os.getenv('ANALYZER_URI')}/analyze",
-            json=monitored_data,
+            json={
+                'monitored_data': monitored_data,
+                'config': data['config']
+            },
             timeout=5
         )
 

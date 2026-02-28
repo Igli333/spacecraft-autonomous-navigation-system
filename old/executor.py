@@ -11,7 +11,7 @@ class Executor:
             force,
             torque
     ):
-        self.forceEffector.extForce_B = force.tolist()
-        self.forceEffector.extTorquePntB_B = torque.tolist()
+        self.forceEffector.extForce_B = force
+        self.forceEffector.extTorquePntB_B = torque
 
         # print(f"{self.forceEffector.extForce_B} -- {self.forceEffector.extTorquePntB_B}")

@@ -1,12 +1,13 @@
 import os
 import json
+import sys
+from pathlib import Path
+
 import numpy as np
 import autonomousModule, sim_utils
 
 from Basilisk.utilities import SimulationBaseClass, macros, simIncludeGravBody, vizSupport
 from Basilisk.simulation import spacecraft, simpleNav, simSynch, extForceTorque
-
-from dotenv import load_dotenv
 
 try:
     from Basilisk.simulation import vizInterface
@@ -18,72 +19,47 @@ from Basilisk import __path__
 bskPath = __path__[0]
 fileName = os.path.basename(os.path.splitext(__file__)[0])
 
-load_dotenv("spacecraft-navigation-system/sim.env")
 
+def run(showPlots=True, liveStream=True, broadcastStream=True, configuration='earth-docking.json'):
+    with open(f"{Path(__file__).resolve().parent}/config/{configuration}") as f:
+        config = json.load(f)
 
-def run(showPlots=True, liveStream=True, broadcastStream=True):
+    simulationConfig = config["simulation"]
+    spiceConfig = simulationConfig["spice"]
+    vizConfig = simulationConfig["visualization"]
+
     simulation = SimulationBaseClass.SimBaseClass()
 
     simulationTaskName = "simTask"
     simulationProcessName = "simProcess"
-    simulationTimeStep = macros.sec2nano(float(os.getenv("SIM_TIME_STEP_SEC", 1.0)))
+    simulationTimeStep = macros.sec2nano(simulationConfig['step_sec'])
 
     dynProcess = simulation.CreateNewProcess(simulationProcessName)
     dynProcess.addTask(simulation.CreateNewTask(simulationTaskName, simulationTimeStep))
 
-    # Defining our spacecrafts
     target = spacecraft.Spacecraft()
     target.ModelTag = "target"
 
     chaser = spacecraft.Spacecraft()
     chaser.ModelTag = "chaser"
 
-    target.hub.mHub = float(os.getenv("TARGET_MASS", 1750.0))
+    target.hub.mHub = simulationConfig['target']['mass']
     target.hub.IHubPntBc_B = np.array(
-        json.loads(os.getenv("TARGET_INERTIA"))
+        simulationConfig['target']['inertia']
     )
 
-    # [[1000.0, 0.0, 0.0],
-    #  [0.0, 1000.0, 0.0],
-    #  [0.0, 0.0, 1000.0]]
-
-    # Chaser mass properties
-    chaser.hub.mHub = float(os.getenv("CHASER_MASS", 500.0))
+    chaser.hub.mHub = simulationConfig['chaser']['mass']
     chaser.hub.IHubPntBc_B = np.array(
-        json.loads(os.getenv("CHASER_INERTIA"))
+        simulationConfig['chaser']['inertia']
     )
 
-    # [[600.0, 0.0, 0.0],
-    #   [0.0, 550.0, 0.0],
-    #   [0.0, 0.0, 450.0]]
+    target.hub.r_CN_NInit = simulationConfig['target']['position_m']
+    target.hub.v_CN_NInit = simulationConfig['target']['velocity_m_s']
 
-    # Initial orbital states (Target)
-    target.hub.r_CN_NInit = [
-        float(os.getenv("R_INIT_X", 7000e3)),
-        float(os.getenv("R_INIT_Y", 0.0)),
-        float(os.getenv("R_INIT_Z", 0.0))
-    ]
-    target.hub.v_CN_NInit = [
-        float(os.getenv("V_INIT_X", 0.0)),
-        float(os.getenv("V_INIT_Y", 7.546e3)),
-        float(os.getenv("V_INIT_Z", 0.0))
-    ]
-    target.hub.sigma_BNInit = [
-        [float(os.getenv("SIGMA_INIT_X", 0.0))],
-        [float(os.getenv("SIGMA_INIT_Y", 0.0))],
-        [float(os.getenv("SIGMA_INIT_Z", 0.0))]
-    ]
-    target.hub.omega_BN_BInit = [
-        [float(os.getenv("OMEGA_INIT_X", 0.0))],
-        [float(os.getenv("OMEGA_INIT_Y", 0.0))],
-        [float(os.getenv("OMEGA_INIT_Z", 0.0))]
-    ]
+    target.hub.sigma_BNInit = [[x] for x in simulationConfig['target']['sigma']]
+    target.hub.omega_BN_BInit = [[x] for x in simulationConfig['target']['omega_rad_s']]
 
-    seed = os.getenv("RANDOM_SEED")
-    if seed:
-        seed = int(seed)
-    else:
-        seed = None
+    seed = simulationConfig.get("seed", None)
     sim_utils.applyInitialRandomization(target, chaser, docking_port_N=None, seed=seed)
 
     chaserForceEffect = extForceTorque.ExtForceTorque()
@@ -95,25 +71,21 @@ def run(showPlots=True, liveStream=True, broadcastStream=True):
     chaser.addDynamicEffector(chaserForceEffect)
     simulation.AddModelToTask(simulationTaskName, chaserForceEffect)
 
-    # clear prior gravitational body and SPICE setup definitions
+    body = simulationConfig.get('body', 'earth')
     gravFactory = simIncludeGravBody.gravBodyFactory()
-    gravBodies = gravFactory.createBodies('sun', 'earth')
-    gravBodies['earth'].isCentralBody = True
+    gravBodies = gravFactory.createBodies('sun', body)
+    gravBodies[body].isCentralBody = True
 
-    # attach gravity model to spacecraft
     gravFactory.addBodiesTo(target)
     gravFactory.addBodiesTo(chaser)
 
-    # setup SPICE interface for celestial objects
-    timeInitString = os.getenv("SPICE_EPOCH", "2002 APRIL 1 00:09:30.0")
-    spiceObject = gravFactory.createSpiceInterface(time=timeInitString, epochInMsg=True)
-    spiceObject.zeroBase = os.getenv("SPICE_ZERO_BASE", "Earth")
+    spiceObject = gravFactory.createSpiceInterface(time=spiceConfig["epoch"], epochInMsg=True)
+    spiceObject.zeroBase = spiceConfig["zero_base"]
     simulation.AddModelToTask(simulationTaskName, spiceObject)
 
     simulation.AddModelToTask(simulationTaskName, target)
     simulation.AddModelToTask(simulationTaskName, chaser)
 
-    # Navigation (state access)
     targetNav = simpleNav.SimpleNav()
     targetNav.scStateInMsg.subscribeTo(target.scStateOutMsg)
     simulation.AddModelToTask(simulationTaskName, targetNav)
@@ -122,7 +94,6 @@ def run(showPlots=True, liveStream=True, broadcastStream=True):
     chaserNav.scStateInMsg.subscribeTo(chaser.scStateOutMsg)
     simulation.AddModelToTask(simulationTaskName, chaserNav)
 
-    # Logging
     targetRec = targetNav.transOutMsg.recorder()
     chaserRec = chaserNav.transOutMsg.recorder()
 
@@ -132,7 +103,7 @@ def run(showPlots=True, liveStream=True, broadcastStream=True):
     if vizSupport.vizFound:
         if liveStream:
             clockSync = simSynch.ClockSynch()
-            clockSync.accelFactor = float(os.getenv("CLOCK_ACCEL_FACTOR", 100.0))
+            clockSync.accelFactor = vizConfig["clock_acceleration_factor"]
             simulation.AddModelToTask(simulationTaskName, clockSync)
 
         viz = vizSupport.enableUnityVisualization(
@@ -144,30 +115,29 @@ def run(showPlots=True, liveStream=True, broadcastStream=True):
         )
 
         viz.reqComProtocol = "tcp"
-        viz.reqComAddress = os.getenv("VIZ_REQ_ADDR", "localhost")
-        viz.reqPortNumber = os.getenv("VIZ_REQ_PORT", "5556")
+        viz.reqComAddress = vizConfig["request"]["address"]
+        viz.reqPortNumber = str(vizConfig["request"]["port"])
 
-        # To set broadcast port:
         viz.pubComProtocol = "tcp"
-        viz.pubComAddress = os.getenv("VIZ_PUB_ADDR", "localhost")
-        viz.pubPortNumber = os.getenv("VIZ_PUB_PORT", "5570")
+        viz.pubComAddress = vizConfig["publish"]["address"]
+        viz.pubPortNumber = str(vizConfig["publish"]["port"])
 
         viz.settings.trueTrajectoryLinesOn = -1
         viz.settings.orbitLinesOn = 2
         viz.settings.mainCameraTarget = "target"
 
-    mape_k = autonomousModule.MAPEK_Module(targetNav, chaserNav, chaserForceEffect)
+    mape_k = autonomousModule.MAPEK_Module(targetNav, chaserNav, chaserForceEffect, config)
 
     simulation.AddModelToTask(simulationTaskName, mape_k)
 
-    simulation.ConfigureStopTime(macros.sec2nano(float(os.getenv("SIM_STOP_TIME_SEC", 1500.0))))
+    simulation.ConfigureStopTime(macros.sec2nano(simulationConfig['stop_time_sec']))
     simulation.InitializeSimulation()
     simulation.ExecuteSimulation()
 
     print("Target samples:", len(targetRec.r_BN_N))
     print("Chaser samples:", len(chaserRec.r_BN_N))
 
-    # --- Post-processing ---
+    # Post-processing
     rT = np.vstack(targetRec.r_BN_N)
     rC = np.vstack(chaserRec.r_BN_N)
     relPos = rC - rT
@@ -180,7 +150,8 @@ def run(showPlots=True, liveStream=True, broadcastStream=True):
 
 if __name__ == "__main__":
     run(
-        True,  # show_plots
+        False,  # show_plots
         True,
-        True
+        True,
+        sys.argv[1]
     )

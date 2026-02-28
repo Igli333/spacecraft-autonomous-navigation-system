@@ -37,7 +37,6 @@ class Planner:
             dist = np.dot(a.rho, n_hat)
             v_parallel = np.dot(a.rhoDot, n_hat)
 
-            rho_perp = a.rho - dist * n_hat
             v_perp = a.rhoDot - v_parallel * n_hat
 
             # Lyapunov gains
@@ -117,7 +116,7 @@ class Planner:
 
         p_abort = self.kb.abortProbabilityTorque(dist, sigma_norm, omega_norm)
 
-        if p_abort > 0.3 or a.phase not in [phase.Phase.CLOSE, phase.Phase.DOCKING]:
+        if p_abort > 0.1 or a.phase not in [phase.Phase.CLOSE, phase.Phase.DOCKING]:
             tau = np.zeros(3)
         else:
             Kr = 5.0
