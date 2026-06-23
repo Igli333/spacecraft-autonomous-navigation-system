@@ -6,7 +6,7 @@
 1. Download Basilisk and build it on your local machine
 2. Clone this repository inside of ./basilisk/
     - `cd` into the folder and run `docker compose up --build`
-    - If needed, you can change all system variables inside `sim.env`.
+    - If needed, you can change variables inside `earth-docking.json`, or create a new JSON config file.
     - Go back using `cd ..`
 3. Run `python ./spacecraft-autonomous-navigation-system/simulation.py <config-file-name>.json`
 
